@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <!--
+          "StAuth10222: I James Gelfand, 000275852 certify that this material is my original work. 
+          No other person's work has been used without due acknowledgement. 
+          I have not made my work available to anyone else."
+        -->
+
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- Custom CSS -->
+        <link rel="stylesheet" href="style.css">
+        <!-- Bootstrap CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+        <script src="https://unpkg.com/vue@next"></script>
+        <script src="https://unpkg.com/vuex@4"></script>
+
+        <title>Assignment 5 - Vue.js</title>
+    </head>
+    <body>
+
+    <!-- template for the modal component -->
+    <script type="text/x-template" id="modal-template">
+      <div class="modal-mask">
+        <div class="modal-wrapper">
+          <div class="modal-container">
+
+            <div class="modal-header">
+              <slot name="header">
+                default header
+              </slot>
+            </div>
+
+            <div class="modal-body">
+              <slot name="body">
+                default body
+              </slot>
+            </div>
+
+            <div class="modal-footer">
+              <slot name="footer">
+                <button class="btn btn-warning" @click="$emit('close')">
+                  Close
+                </button>
+              </slot>
+            </div>
+          </div>
+        </div>
+      </div>
+    </script>
+
+    <!-- app -->
+    <div class="container mt-3" id="app">
+      <h2>Assignment 5 - Grade Entry</h2>
+      <p>Honor grades are grades equal to or over 80%, failing grades are below 50%. You can also filter by course name.</p> 
+      <div class="row">
+        <div class="col-sm">
+          <button type="button" class="btn btn-primary" id="show-modal" @click="showModal = true">Create Grade</button>
+        </div>
+        <div class="col-sm">
+          <button type="button" id="honorsBtn" v-bind:class="{'btn btn-success': !hclicked, 'btn btn-danger': hclicked}" v-on:click ="hclicked = !hclicked" 
+          @click="honorFail('honors')">Honor Grades</button>
+        </div>
+        <div class="col-sm">
+          <button type="button" id="failuresBtn"  v-bind:class="{'btn btn-success': !fclicked, 'btn btn-danger': fclicked}" v-on:click ="fclicked = !fclicked"
+          @click="honorFail('failures')">Failing Grades</button>
+        </div>
+      </div>
+      <br />
+      <!-- Modal template from Vue website -->
+      <transition name="modal">
+        <modal v-if="showModal" @close="showModal = false">
+
+          <template v-slot:header>
+            <h3>Create Entry</h3>
+          </template>
+          <template v-slot:body>
+            <div class="mb-3 mt-3">
+              <ul  style="font-weight: bold; color: rgb(207, 23, 23)" v-for="error in errorMessage">{{error}}</ul>
+              <label for="course_input" class="form-label">Course Name:</label>
+              <input type="text" class="form-control" id="course_input" v-model="course_entry" placeholder="Enter course name." name="course_input">
+              </div>
+              <div class="mb-3">
+              <label for="grade_input" class="form-label">Course Grade:</label>
+              <input type="number" class="form-control" id="grade_input" v-model="grade_entry" placeholder="Enter grade." name="grade_input">
+              </div>
+              <button v-on:click="addGrade" class="btn btn-primary">Submit</button>
+            </div>
+          </template>
+        </modal>
+      </transition>
+  
+      <input v-model="search" class="form-control" @change="filterCourse" placeholder="Filter courses by name.">    
+      <br />     
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th @click="sort('course')">Course</th>
+            <th @click="sort('grade')">Grade</th>
+            <th>Edit</th>
+            <th>Delete</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="grade in filteredGrades">
+            <td>{{grade.course}}</td>
+            <td>{{grade.grade}}</td>
+            <td @click="edit(grade.id)">Edit</td>
+            <td @click="deleteGrade(grade)">Delete</td>
+          </tr>
+        </tbody>
+      </table>
+      <br />
+      <h2>Grade Calculations</h2>
+      <p>Calculations below are based on currently filtered grades. If no filter is present, all grades are calculated from.</p>     
+      <br />   
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Min</th>
+            <th>Max</th>
+            <th>Average</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{{ findMin(filteredGrades) }}</td>
+            <td>{{ findMax(filteredGrades) }}</td>
+            <td>{{ totalAverage(filteredGrades) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    </body>
+</html>
+ 
+<!-- Option 1: Bootstrap Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+
+<script>
+const app = Vue.createApp({
+      data() {
+          return {
+              grades: [
+
+              ],
+              showModal: false,
+              honors: false,
+              failures: false,
+              editing: false,
+              hclicked: false,
+              fclicked: false,
+              filter: '',
+              insertId: 0,
+              editIndex: '',
+              lastClicked: '',
+              minGrade: '',
+              maxGrade: '',
+              currentSort:'name',
+              currentSortDir:'asc',
+              grade_entry: '',
+              course_entry: '',
+              search: '',
+              gradeFilter: '',
+              errorMessage: []
+          }
+      },
+      methods:{
+          // Set the current sorts
+          sort:function(sort) {
+              if(sort === this.currentSort) {
+                  this.currentSortDir = this.currentSortDir==='asc'?'desc':'asc';
+              }
+              this.currentSort = sort;
+          },
+          addGrade: function(event) {
+              this.errorMessage = [];
+              // Insert or update a grade
+              if (this.grade_entry >= 0 && this.grade_entry <= 100 && this.grade_entry != '' && this.course_entry != '') {
+                  check = this.grades.filter(grade => {
+                      return grade.course.toLowerCase().indexOf(this.course_entry.toLowerCase()) != -1
+                  });
+                  if (check.length === 0) {
+                    if (this.editing === false) {
+                      this.grades.push( { id: this.insertId, course: this.course_entry, grade: this.grade_entry });
+                      this.insertId++;
+                    } else {
+                      this.grades.splice(this.editIndex, 1, ({ id: this.editIndex, course: this.course_entry, grade: this.grade_entry }))
+                      this.editIndex = '';
+                      this.editing = false;
+                    }
+                    this.showModal = false;
+                    this.course_entry = '';
+                    this.grade_entry = '';
+                  } else {
+                    this.errorMessage.push("Duplicate entry.");
+                  }
+              } else {
+                  // Error handling
+                  if (this.grade_entry < 0) {
+                      this.errorMessage.push("Grade cannot be less than 0.");
+                  }
+                  if (this.grade_entry > 100) {
+                      this.errorMessage.push("Grade cannot be more than 100.");
+                  }
+                  if (this.course_entry == '') {
+                      this.errorMessage.push("Course cannot be empty.");
+                  }
+                  if (this.grade_entry == '') {
+                      this.errorMessage.push("Grade cannot be empty.");
+                  }
+              }
+          },
+          // Edit a grade
+          edit(index) {
+              this.editing = true;
+              this.showModal = true;
+              this.editIndex = index;
+              //this.grades.splice(index, 1, ({ id: 0, course: "Test", grade: "100" }))
+          },
+          // Delete a grade
+          deleteGrade(grade) {
+              this.grades.splice(this.grades.indexOf(grade), 1);
+          },
+          // Find the average in the array
+          totalAverage(passedGrades) {
+              var average = 0;
+              if (passedGrades.length > 0) {
+                for(var i = 0; i < passedGrades.length; i++){
+                  average += Number(passedGrades[i].grade);
+                }
+                return average / passedGrades.length; 
+              } else {
+                return 0;
+              }
+   
+          },
+          // Find maximum in array
+          findMax(passedGrades) {
+              maxArray = [];
+              if (passedGrades.length > 0) {
+                for(var i = 0; i < passedGrades.length; i++){
+                  maxArray.push(Number(passedGrades[i].grade));
+                }
+                return this.maxGrade = Math.max.apply(Math, maxArray);
+              } else {
+                return 0;
+              }
+          },
+          // Find minimum in array
+          findMin(passedGrades) {
+              minArray = [];
+              if (passedGrades.length > 0) {
+                for(var i = 0; i < passedGrades.length; i++){
+                minArray.push(Number(passedGrades[i].grade));
+                }
+                return this.minGrade = Math.min.apply(Math, minArray);
+              } else {
+                return 0;
+              }
+          },
+          // Sort grades by course and by grade
+          sortedGrades:function(grades) {
+              return this.grades.sort((a,b) => {
+                  if (this.currentSort === 'course') {
+                    let modifier = 1;
+                    if (this.currentSortDir === 'desc') modifier = -1;
+                    if (a[this.currentSort] < b[this.currentSort]) return -1 * modifier;
+                    if (a[this.currentSort] > b[this.currentSort]) return 1 * modifier;
+                    return 0;
+                  }
+                  if (this.currentSort === 'grade') {
+                    if (this.currentSortDir === 'desc') {
+                      return b[this.currentSort] - a[this.currentSort];
+                    } else {
+                      return a[this.currentSort] - b[this.currentSort];
+                    }
+                  }
+              });
+          },
+          // Filter by course name
+          filterCourse:function(grades) {
+              if (this.search != '') {
+                return this.grades.filter(grade => {
+                  if(this.search == '') return true;
+                    return grade.course.toLowerCase().indexOf(this.search.toLowerCase()) >= 0;
+                });
+              }
+              else {
+                  return this.grades;
+              }
+          },
+          // Switch between honor Grades and failing grades
+          honorFail(filter) {
+            if (filter === 'honors') {
+                this.filter = 'honors';
+            }
+            if (filter === 'failures') {
+                this.filter = 'failures';
+            }
+        }
+      },
+      computed:{
+          // Results of the filtered grades
+          filteredGrades:function() {
+              // return this.filterCourse(this.sortedGrades());
+              // console.log("THIS" + this.filterGrade(this.filter));
+              if (this.filter === 'honors' && this.honors === false) {
+                  this.honors = !this.honors;
+                  this.filter = '';
+                  console.log("Reached Honours");
+                  lastClicked = "honors";
+                  return this.grades.filter(grade => {
+                      return grade.grade >= 80;
+                  });
+              } else if (this.filter === 'failures' && this.failures === false) {
+                  this.failures = !this.failures;
+                  this.filter = '';
+                  console.log("Reached Fails");
+                  lastClicked = "failures";
+                  return this.grades.filter(grade => {
+                    return grade.grade < 50;
+                  });
+              } else {
+                  this.filter = '';
+                  if (lastClicked = "honors") {
+                      this.honors = !this.honors;
+                  }
+                  if (lastClicked = "failures") {
+                      this.failures = !this.failures;
+                  }
+                  console.log("Reached Exit");
+                  return this.filterCourse(this.sortedGrades());
+              }  
+          }
+
+      }
+  });
+
+  const app1 = Vue.createApp({
+    data() {
+      return {
+        showModal: false
+      }
+    }
+  })
+
+  app.component("modal", {
+    template: "#modal-template",
+  })
+
+  app.mount('#app')
+</script>
